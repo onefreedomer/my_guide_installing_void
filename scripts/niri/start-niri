@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+
+# Нужно для полноэкранного режима на VirtualBox
+# rcvboxadd start         
+# rcvboxadd-service start
+
+# Нужно для корректного отображения окна kitty на VirtualBox.
+# export LIBGL_ALWAYS_SOFTWARE=1
+# export GALLIUM_DRIVER=llvmpipe
+
+dbus-run-session -- sh -c '
+	pipewire > "$HOME/.cache/pipewire.log" 2>&1 &
+	exec niri --session > "$HOME/.cache/niri.log" 2>&1
+'

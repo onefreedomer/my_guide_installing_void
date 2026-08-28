@@ -93,7 +93,7 @@ TODO: По возможности добавить отключение Secure B
 
 ### Разметка диска
 Введите команду ниже, чтобы узнать список подключенных накопителей и их разделы:
-```shell-session
+```console
 $ lsblk -f
 ```
 
@@ -109,11 +109,11 @@ $ lsblk -f
 > **НЕ ТРОГАЙТЕ** разделы диска с файловой системой `ntfs` или с именем `Windows`! Также **НЕ ИЗМЕНЯЙТЕ** загрузочный раздел с файловой системой `vfat`, размером 300-500 МиБ. Эти разделы создала Windows, и их удаление может **сломать систему** и **уничтожить Ваши данные**.
 
 С выбранным диском выполните команду:
-```shell-session
+```console
 # cfdisk /dev/<выбранный_диск>
 ```
 К примеру:
-```shell-session
+```console
 # cfdisk /dev/nvme0n1
 # cfdisk /dev/sdb
 ```
@@ -136,20 +136,20 @@ $ lsblk -f
 Нажмите кнопку «Write», чтобы применить изменения, и дальше «Quit».
 
 ### Создание файловой системы и монтирование подразделов
-Создадайте корневную файловую систему (далее - ФС) btrfs и файл подкачки:
-```shell-session
+Создайте корневную файловую систему (далее - ФС) btrfs и файл подкачки:
+```console
 # mkfs.btrfs /dev/nvme0n1p5
 # mkswap /dev/nvme0n1p4
 ```
 
 Далее монтирование разделов будет происходить в `/mnt`.  
 Смонтируйте корневую ФС:
-```shell-session
+```console
 # mount /dev/nvme0n1p5 /mnt
 ```
 
 Дальше создайте btrfs-подразделы, для того чтобы снапшоты не содержали временные файлы, как следствие экономия места:
-```shell-session
+```console
 # btrfs subvolume create /mnt/@
 # btrfs sub cr /mnt/@home
 # btrfs sub cr /mnt/@log
@@ -159,7 +159,7 @@ $ lsblk -f
 ```
 
 Команда для просмотра списка btrfs-подразделов:
-```shell-session
+```console
 # btrfs sub list /mnt
 ```
 
@@ -173,34 +173,34 @@ $ lsblk -f
 > - о других параметрах можно узнать через `man mount` и `man btrfs`.
 
 Размонтируйте корневую ФС и смонтируйте каждый из подразделов:
-```shell-session
+```console
 $ BTRFS_OPTS="noatime,compress=zstd:1"
 # umount /mnt
 # mount -o subvol=@,$BTRFS_OPTS /dev/nvme0n1p5 /mnt
 ```
-```shell-session
+```console
 # mkdir /mnt/home
 # mount -o subvol=@home,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/home
 ```
-```shell-session
+```console
 # mkdir -p /mnt/var/log
 # mount -o subvol=@log,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/log
 ```
-```shell-session
+```console
 # mkdir /mnt/var/tmp
 # mount -o subvol=@tmp,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/tmp
 ```
-```shell-session
+```console
 # mkdir /mnt/var/cache
 # mount -o subvol=@cache,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/cache
 ```
-```shell-session
+```console
 # mkdir -p /mnt/var/lib/sddm
 # mount -o subvol=@sddm,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/lib/sddm
 ```
 
 Включите файл подкачки:
-```shell-session
+```console
 # swapon /dev/nvme0n1p4
 ```
 
@@ -208,7 +208,7 @@ $ BTRFS_OPTS="noatime,compress=zstd:1"
 TODO: Узнать как монтируется загрузочный раздел для Legacy BIOS
 -->
 Смонтируйте загрузочный раздел:
-```shell-session
+```console
 # mkdir -p /mnt/boot/efi
 # mount /dev/nvme0n1p1 /mnt/boot/efi
 ```

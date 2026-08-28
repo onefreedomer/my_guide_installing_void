@@ -11,7 +11,8 @@
     1.2. [Запись live образа на флешку](#запись-live-образа-на-флешку)  
     1.3. [Отключение Secure Boot](#отключение-secure-boot)  
     1.4. [Запуск live образа](#запуск-live-образа)  
-    1.5. [Разметка диска](#разметка-диска)
+    1.5. [Разметка диска](#разметка-диска)  
+    1.6. [Создание файловой системы и монтирование подразделов](#создание-файловой-системы-и-монтирование-подразделов)
 2. [Установка драйверов NVIDIA и Intel](#установка-драйверов-nvidia-и-intel)
 3. [Установка nftables](#установка-nftables)
 4. [Установка Pipewire](#установка-pipewire)
@@ -105,7 +106,7 @@ $ lsblk -f
 Найдите название диска, на котором Вы освободили место в шаге «[Выделение места под вторую ОС](#выделение-места-под-вторую-ос)», исходя из ответа прошлой команды.
 
 > [!CAUTION]
-> **НЕ ТРОГАЙТЕ** разделы диска с файловой системой `ntfs` или с именем `Windows`! Эти разделы создала Windows, и их удаление может **сломать систему** и **уничтожить Ваши данные**.
+> **НЕ ТРОГАЙТЕ** разделы диска с файловой системой `ntfs` или с именем `Windows`! Также **НЕ ИЗМЕНЯЙТЕ** загрузочный раздел с файловой системой `vfat`, размером 300-500 МиБ. Эти разделы создала Windows, и их удаление может **сломать систему** и **уничтожить Ваши данные**.
 
 С выбранным диском выполните команду:
 ```shell-session
@@ -134,6 +135,84 @@ $ lsblk -f
 
 Нажмите кнопку «Write», чтобы применить изменения, и дальше «Quit».
 
+### Создание файловой системы и монтирование подразделов
+Создадайте корневную файловую систему (далее - ФС) btrfs и файл подкачки:
+```shell-session
+# mkfs.btrfs /dev/nvme0n1p5
+# mkswap /dev/nvme0n1p4
+```
+
+Далее монтирование разделов будет происходить в `/mnt`.  
+Смонтируйте корневую ФС:
+```shell-session
+# mount /dev/nvme0n1p5 /mnt
+```
+
+Дальше создайте btrfs-подразделы, для того чтобы снапшоты не содержали временные файлы, как следствие экономия места:
+```shell-session
+# btrfs subvolume create /mnt/@
+# btrfs sub cr /mnt/@home
+# btrfs sub cr /mnt/@log
+# btrfs sub cr /mnt/@tmp
+# btrfs sub cr /mnt/@cache
+# btrfs sub cr /mnt/@sddm
+```
+
+Команда для просмотра списка btrfs-подразделов:
+```shell-session
+# btrfs sub list /mnt
+```
+
+> [!NOTE]
+> Далее переменная `BTRFS_OPTS` используется для более краткого указания параметров монтирования.  
+> Примеры параметров:
+> - `noatime` (no access time) - отключение времени последнего доступа к файлу, что полезно для уменьшения износа SSD;
+> - `compress=zstd:1` - сжатие данных по стандарту `zstd` со степенью 1. Стандарт сжатия и степень могут варироваться;
+> - `ssd` - оптимизация ФС под SSD;
+> - `discard=async` - асинхронное освобождение неиспользуемых блоков данных на SSD;
+> - о других параметрах можно узнать через `man mount` и `man btrfs`.
+
+Размонтируйте корневую ФС и смонтируйте каждый из подразделов:
+```shell-session
+$ BTRFS_OPTS="noatime,compress=zstd:1"
+# umount /mnt
+# mount -o subvol=@,$BTRFS_OPTS /dev/nvme0n1p5 /mnt
+```
+```shell-session
+# mkdir /mnt/home
+# mount -o subvol=@home,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/home
+```
+```shell-session
+# mkdir -p /mnt/var/log
+# mount -o subvol=@log,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/log
+```
+```shell-session
+# mkdir /mnt/var/tmp
+# mount -o subvol=@tmp,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/tmp
+```
+```shell-session
+# mkdir /mnt/var/cache
+# mount -o subvol=@cache,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/cache
+```
+```shell-session
+# mkdir -p /mnt/var/lib/sddm
+# mount -o subvol=@sddm,$BTRFS_OPTS /dev/nvme0n1p5 /mnt/var/lib/sddm
+```
+
+Включите файл подкачки:
+```shell-session
+# swapon /dev/nvme0n1p4
+```
+
+<!--
+TODO: Узнать как монтируется загрузочный раздел для Legacy BIOS
+-->
+Смонтируйте загрузочный раздел:
+```shell-session
+# mkdir -p /mnt/boot/efi
+# mount /dev/nvme0n1p1 /mnt/boot/efi
+```
+
 ## Установка драйверов NVIDIA и Intel
 
 ## Установка nftables
@@ -149,3 +228,5 @@ $ lsblk -f
 ## Установка Steam и MangoHud
 
 ## Ссылки на используемые ресурсы
+1. https://docs.voidlinux.org/installation/guides/chroot.html
+2. https://wiki.archlinux.org/title/Btrfs

@@ -13,7 +13,8 @@
     1.4. [Запуск live образа](#запуск-live-образа)  
     1.5. [Разметка диска](#разметка-диска)  
     1.6. [Создание файловой системы и монтирование подразделов](#создание-файловой-системы-и-монтирование-подразделов)  
-    1.7. [Редактирование fstab](#редактирование-fstab)
+    1.7. [Редактирование fstab](#редактирование-fstab)  
+    1.8. [Установка Void Linux](#установка-void-linux)
 2. [Установка драйверов NVIDIA и Intel](#установка-драйверов-nvidia-и-intel)
 3. [Установка nftables](#установка-nftables)
 4. [Установка Pipewire](#установка-pipewire)
@@ -223,18 +224,111 @@ TODO: Узнать как монтируется загрузочный разд
 > ```
 > После каждого перезапуска команды выше придется повторять, потому что изменения внутри live образа не фиксируются.
 
-Сгенерируйте `fstab` - файл, благодаря которому файловая система автоматически монтируется при запуске:
+Сгенерируйте `fstab` - файл, благодаря которому ФС автоматически монтируется при запуске:
 ```console
 # mkdir /mnt/etc
 $ xgenfstab /mnt > /mnt/etc/fstab
 ```
 
-Уберите внутри колонки `<options>` слэш у параметра `subvol=/...`, и удалите `space_cache=v2`, `subvolid=...`:
+<!--
+Изучить подробнее тему параметров монтирования btrfs ФС. В том числе использование space_cache=v2
+-->
+Уберите слэш в начале значения параметра `subvol=/...`:
 ```console
 # vim /mnt/etc/fstab
 ```
 
 ![Примерный вид файла fstab](./media/fstab.png)
+
+### Установка Void Linux
+Скопируйте RSA ключи из live среды в будущую ФС:
+```console
+# mkdir -p /mnt/var/db/xbps/keys
+# cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys 
+```
+
+Выберите близкое по геолокации зеркало репозитория Void Linux с сайта: https://xmirror.voidlinux.org/. Рекомендую выбирать репозитории Tier 1, так как они принадлежат официальным разработчикам дистрибутива и содержат самые свежие версии пакетов.  
+
+Установите базовую систему, утилиты для btrfs и GRUB в будущую ФС:
+```console
+$ REPO="https://repo-de.voidlinux.org/current"
+$ ARCH="x86_64"
+# xbps-install -Su xbps
+# XBPS_ARCH=$ARCH xbps-install -y -R $REPO -r /mnt base-system btrfs-progs grub-x86_64-efi vim
+```
+
+Скопируйте список DNS-серверов из live среды:
+```console
+# cp /etc/resolv.conf /mnt/etc
+```
+или настройте сами, например, используя [Quad9](https://quad9.net/):
+```console
+# vim /mnt/etc/resolv.conf
+```
+```resolv
+nameserver 9.9.9.9
+nameserver 149.112.112.112
+```
+
+Установите имя будущей системе:
+```console
+# echo <имя> > /mnt/etc/hostname
+```
+
+Войдите в chroot и выполните базовую настройку:
+```console
+# xchroot /mnt /bin/bash
+# [xchroot /mnt] chown root:root /
+# [xchroot /mnt] chmod 755 /
+# [xchroot /mnt] passwd root
+# [xchroot /mnt] chmod -R g-rwx,o-rwx /boot
+```
+Что произойдет:  
+1. Пользователь `root` установиться как владелец директории `/`.
+2. Участники группы `root` и остальные смогут узнать содержимое и перейти в `/`.
+3. Изменяет пароль у `root` пользователя.
+4. Изолирует от внешнего воздействия директорию `/boot` и её содержимое рекурсивно. Только пользователь `root` сможет взаимодейсвтовать.
+
+Включите нужные локали:
+```console
+# [xchroot /mnt] vim /etc/locale.conf
+```
+```locale
+LANG=en_US.UTF-8
+```
+
+```console
+# [xchroot /mnt] vim /etc/default/libc-locales
+```
+```libc-locales
+en_US.UTF-8 UTF-8
+ru_RU.UTF-8 UTF-8
+```
+
+Установите на диск загрузчик GRUB:
+```console
+# [xchroot /mnt] grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id="Void"
+```
+Добавьте в конец параметр GRUB для поиска других загрузчиков ОС:
+```console
+# [xchroot /mnt] vim /etc/default/grub
+```
+```grub
+GRUB_DISABLE_OS_PROBER=false
+```
+
+Произведите реконфигурацию всех приложений:
+```console
+# [xchroot /mnt] xbps-reconfigure -fa
+```
+
+Выйдите из chroot и перезагрузите систему:
+```console
+# [xchroot /mnt] exit
+# umount -R /mnt
+# reboot
+```
+Достаньте флешку после затухания экрана.
 
 ## Установка драйверов NVIDIA и Intel
 

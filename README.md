@@ -21,6 +21,7 @@
         2. [Подключение к Wi-Fi](#подключение-к-wi-fi)
         3. [Настройка отображаемого времени и установка chrony](#настройка-отображаемого-времени-и-установка-chrony)
         4. [Включение nonfree и multilib репозиториев](#включение-nonfree-и-multilib-репозиториев)
+        5. [Включение логирования](#включение-логирования)
 2. [Установка драйверов NVIDIA и Intel](#установка-драйверов-nvidia-и-intel)
 3. [Установка nftables](#установка-nftables)
 4. [Установка Pipewire](#установка-pipewire)
@@ -261,6 +262,21 @@ $ xgenfstab /mnt > /mnt/etc/fstab
 # cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys 
 ```
 
+> [!NOTE]
+> При использовании проводного подключения к интернету следующий шаг можно пропустить.
+
+Узнайте название своего сетевого интерфейса (обычно это что-то вроде `wlan0`, `wlp2s0`):
+```console
+# ip link
+$ II="wlp2s0"
+```
+Подключитесь к интернету:
+```console
+# wpa_passphrase <имя_сети> <пароль> >> /etc/wpa_supplicant/wpa_supplicant.conf
+# wpa_supplicant -B -i $II -с /etc/wpa_supplicant/wpa_supplicant.conf
+# dhcpcd $II
+```
+
 Выберите близкое по геолокации зеркало репозитория Void Linux с сайта: https://xmirror.voidlinux.org/. Рекомендую выбирать репозитории Tier 1, так как они принадлежат официальным разработчикам дистрибутива и содержат самые свежие версии пакетов.  
 
 Установите базовую систему, утилиты для btrfs и GRUB в будущую ФС:
@@ -363,22 +379,7 @@ GRUB_DISABLE_OS_PROBER=false
 ```
 
 #### Подключение к Wi-Fi
-Узнайте название своего сетевого интерфейса (обычно это что-то вроде `wlan0`, `wlp2s0`):
-```console
-# ip link
-$ II="wlp2s0"
-```
-Подключитесь к интернету:
-```console
-# wpa_passphrase <имя_сети> <пароль> >> /etc/wpa_supplicant/wpa_supplicant.conf
-# wpa_supplicant -B -i $II -с /etc/wpa_supplicant/wpa_supplicant.conf
-# dhcpcd $II
-```
-
-Проверьте подключение обновлением системы:
-```console
-# xbps-install -Su
-```
+Подключение происходит также как описано начале подпункта «[Установка Void Linux](#установка-void-linux)».
 
 #### Замена dhcpcd на NetworkManager
 > [!WARNING]
@@ -400,7 +401,7 @@ $ II="wlp2s0"
 # sv status NetworkManager
 ```
 
-Подключитесь к сети, используя интерфейс `NetworkManager`:
+Подключитесь к беспроводной сети (у проводной это происходит автоматически), используя интерфейс `NetworkManager`:
 ```console
 $ nmtui
 ```
@@ -448,6 +449,24 @@ $ date
 ```console
 # xbps-install void-repo-nonfree void-repo-multilib void-repo-multilib-nonfree
 # xbps-install -S
+```
+
+#### Включение логирования
+Установите `socklog` и добавьте его в автозагрузку:
+```console
+# xbps-install socklog-void
+# ln -s /etc/sv/{socklog-unix,nanoklogd} /var/service
+```
+
+Добавьте Вашего пользователя в группу `socklog`, чтобы была возможность читать логи без `root`-прав.
+```console
+# usermod -aG socklog <ваше_имя>
+```
+
+Для просмотра логов выполните:
+```console
+$ svlogtail
+$ vim /var/log/socklog/<категория>/current
 ```
 
 ## Установка драйверов NVIDIA и Intel
